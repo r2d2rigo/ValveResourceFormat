@@ -307,11 +307,17 @@ namespace GUI
                 {
                     t.Exception?.Flatten().Handle(ex =>
                     {
-                        mainTabs.TabPages.Remove(tab);
+                        var control = new TextBox
+                        {
+                            Dock = DockStyle.Fill,
+                            Font = new Font(FontFamily.GenericMonospace, 8),
+                            Multiline = true,
+                            ReadOnly = true,
+                            Text = ex.ToString(),
+                        };
 
-                        Console.WriteLine(ex);
-
-                        Invoke(new Action(() => MessageBox.Show(ex.Message + Environment.NewLine + Environment.NewLine + ex.StackTrace, "Failed to read package", MessageBoxButtons.OK, MessageBoxIcon.Error)));
+                        tab.Controls.Clear();
+                        tab.Controls.Add(control);
 
                         return false;
                     });
@@ -973,31 +979,8 @@ namespace GUI
                 var dialog = new FolderBrowserDialog();
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    ExtractFolderFromTree(package, selectedNode, dialog.SelectedPath);
-                }
-            }
-        }
-
-        private void ExtractFolderFromTree(Package package, TreeNode root, string path)
-        {
-            foreach (TreeNode node in root.Nodes)
-            {
-                if (node.Tag.GetType() == typeof(PackageEntry))
-                {
-                    var file = node.Tag as PackageEntry;
-                    var filePath = Path.Combine(path, file.GetFullPath());
-
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        package.ReadEntry(file, out var output);
-                        stream.Write(output, 0, output.Length);
-                    }
-                }
-                else
-                {
-                    ExtractFolderFromTree(package, node, path);
+                    var extractDialog = new ExtractProgressForm(package, selectedNode, dialog.SelectedPath);
+                    extractDialog.ShowDialog();
                 }
             }
         }

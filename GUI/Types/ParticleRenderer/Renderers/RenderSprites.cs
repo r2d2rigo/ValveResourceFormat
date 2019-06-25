@@ -47,9 +47,11 @@ namespace GUI.Types.ParticleRenderer.Renderers
             void main(void) {
                 vec4 color = texture(uTexture, uUvOffset + uv * uUvScale);
                 vec3 finalColor = uColor * uAlpha * color.w * color.xyz;
-                float luminance = max(finalColor.x, max(finalColor.y, finalColor.z));
+                float luminance = 0.2126 * finalColor.x + 0.7152 * finalColor.y + 0.0722 * finalColor.z;
 
-                fragColor = vec4(uColor * uAlpha * color.w * color.xyz, luminance);
+                // TODO: Figure out what the proper function is
+                //fragColor = vec4(uColor * uAlpha * color.w * color.xyz, luminance); 
+                fragColor = vec4(uColor * uAlpha * color.w * color.xyz, uOverbrightFactor * (finalColor.x + finalColor.y + finalColor.z) / 3.0);
             }";
 
         private readonly int shaderProgram;
@@ -177,7 +179,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
 
             if (additive)
             {
-                GL.BlendFunc(BlendingFactor.OneMinusDstColor, BlendingFactor.One);
+                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
             }
             else
             {

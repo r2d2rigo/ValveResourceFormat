@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using ValveResourceFormat.ThirdParty;
 
 namespace ValveResourceFormat.Blocks
 {
@@ -50,13 +51,13 @@ namespace ValveResourceFormat.Blocks
         {
             reader.BaseStream.Position = Offset;
 
-            var vertexOffset = reader.ReadUInt32();
-            var vertexCount = reader.ReadUInt32();
-            var indexOffset = reader.ReadUInt32();
-            var indexCount = reader.ReadUInt32();
+            var vertexBufferOffset = reader.ReadUInt32();
+            var vertexBufferCount = reader.ReadUInt32();
+            var indexBufferOffset = reader.ReadUInt32();
+            var indexBufferCount = reader.ReadUInt32();
 
-            reader.BaseStream.Position = Offset + vertexOffset;
-            for (var i = 0; i < vertexCount; i++)
+            reader.BaseStream.Position = Offset + vertexBufferOffset;
+            for (var i = 0; i < vertexBufferCount; i++)
             {
                 var vertexBuffer = default(VertexBuffer);
 
@@ -72,12 +73,6 @@ namespace ValveResourceFormat.Blocks
                 var refB = reader.BaseStream.Position;
                 var dataOffset = reader.ReadUInt32();       //16
                 var totalSize = reader.ReadUInt32();        //20
-
-                // TODO: underlords has compressed buffers
-                if (totalSize != decompressedSize)
-                {
-                    throw new NotImplementedException($"Vertex buffer totalSize ({totalSize}) != decompressedSize ({decompressedSize})");
-                }
 
                 vertexBuffer.Attributes = new List<VertexAttribute>();
 
@@ -104,14 +99,23 @@ namespace ValveResourceFormat.Blocks
 
                 reader.BaseStream.Position = refB + dataOffset;
 
-                vertexBuffer.Buffer = reader.ReadBytes((int)totalSize);
+                var vertexBufferBytes = reader.ReadBytes((int)totalSize);
+                if (totalSize == decompressedSize)
+                {
+                    vertexBuffer.Buffer = vertexBufferBytes;
+                }
+                else
+                {
+                    vertexBuffer.Buffer = MeshOptimizerVertexDecoder.DecodeVertexBuffer((int)vertexBuffer.Count, (int)vertexBuffer.Size, vertexBufferBytes);
+                }
+
                 VertexBuffers.Add(vertexBuffer);
 
                 reader.BaseStream.Position = refB + 4 + 4; //Go back to the vertex array to read the next iteration
             }
 
-            reader.BaseStream.Position = Offset + 8 + indexOffset; //8 to take into account vertexOffset / count
-            for (var i = 0; i < indexCount; i++)
+            reader.BaseStream.Position = Offset + 8 + indexBufferOffset; //8 to take into account vertexOffset / count
+            for (var i = 0; i < indexBufferCount; i++)
             {
                 var indexBuffer = default(IndexBuffer);
 
@@ -126,14 +130,17 @@ namespace ValveResourceFormat.Blocks
                 var dataOffset = reader.ReadUInt32();   //16
                 var dataSize = reader.ReadUInt32();     //20
 
-                if (dataSize != decompressedSize)
-                {
-                    throw new NotImplementedException($"Index buffer dataSize ({dataSize}) != decompressedSize ({decompressedSize})");
-                }
-
                 reader.BaseStream.Position = refC + dataOffset;
 
-                indexBuffer.Buffer = reader.ReadBytes((int)dataSize);
+                if (dataSize == decompressedSize)
+                {
+                    indexBuffer.Buffer = reader.ReadBytes((int)dataSize);
+                }
+                else
+                {
+                    indexBuffer.Buffer = MeshOptimizerIndexDecoder.DecodeIndexBuffer((int)indexBuffer.Count, (int)indexBuffer.Size, reader.ReadBytes((int)dataSize));
+                }
+
                 IndexBuffers.Add(indexBuffer);
 
                 reader.BaseStream.Position = refC + 4 + 4; //Go back to the index array to read the next iteration.
